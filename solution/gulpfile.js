@@ -17,7 +17,7 @@ const SpeedMeasurePlugin = require("speed-measure-webpack-plugin");
 const smp = new SpeedMeasurePlugin();
 
 // apply performance fixes only on 'gulp serve --fast' or 'gulp bundle --fast'
-const isFast = argv['fast'];
+const isFast = argv['fast-mode'];
 
 if (isFast) {
   build.log(colors.yellow('*** Applying performance fixes ***'));
@@ -33,6 +33,8 @@ function applyPerformanceFixes() {
 
   // disable typescript task (execute `npm run tsc:watch` in a separate cmd to have typescript support)
   build.tscCmd.enabled = false;
+  //add custom copy task, which copies localization files
+  addCopyTask();
   // optional, add only if typescript incremental build ends after webpack is starting
   //addWaitSubTask();
 
@@ -55,12 +57,17 @@ function applyPerformanceFixes() {
   });
 }
 
-function addWaitSubTask() {
-  const wait = build.subTask('wait', function (gulp, buildOptions, done) {
-    setTimeout(done, 1000);
-  });
+function addCopyTask() {
+  build.rig.addPostTypescriptTask(build.subTask('custom-copy', function (gulp, buildOptions, done) {
+    gulp.src(['src/**/*.js', 'src/**/*.json'])
+      .pipe(gulp.dest('lib')).on('end', done);
+  }));
+}
 
-  build.rig.addPreBuildTask(wait);
+function addWaitSubTask() {
+  build.rig.addPostTypescriptTask(build.subTask('wait', function (gulp, buildOptions, done) {
+    setTimeout(done, 1000);
+  }));
 }
 
 // enables only webparts \ bundles listed in active-components.json file
@@ -117,3 +124,8 @@ function disableSourceMapLoader(rules) {
     rules.splice(indx, 1);
   }
 }
+
+gulp.task('sass', () => {
+  const config = build.getConfig();
+  return build.sass.execute(config);
+})
